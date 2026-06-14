@@ -9,9 +9,11 @@ from decimal import Decimal
 from typing import List, Optional
 
 from sqlalchemy.orm import Session
+import asyncio
 
 from app.models import Order, OrderItem, Product, Table, Customer, User
 from app.schemas.order import OrderCreateRequest, OrderItemAddRequest
+from app.services.kds_service import KDSService
 
 
 class OrderService:
@@ -79,6 +81,19 @@ class OrderService:
         db.add(order)
         db.commit()
         db.refresh(order)
+        # Notify KDS clients about new order
+        try:
+            payload = {
+                "id": str(order.id),
+                "order_number": order.order_number,
+                "status": order.status,
+                "table_id": str(order.table_id) if order.table_id else None,
+                "total_amount": float(order.total_amount),
+            }
+            asyncio.create_task(KDSService.broadcast_order_update(payload))
+        except Exception:
+            # best-effort notify; don't fail order creation on notify errors
+            pass
         return order
 
     @staticmethod
@@ -170,6 +185,19 @@ class OrderService:
 
         db.commit()
         db.refresh(item)
+        # Notify KDS of item addition
+        try:
+            order = OrderService.get_order(db, order_id)
+            payload = {
+                "id": str(order.id),
+                "order_number": order.order_number,
+                "status": order.status,
+                "items_count": len(order.items),
+                "total_amount": float(order.total_amount),
+            }
+            asyncio.create_task(KDSService.broadcast_order_update(payload))
+        except Exception:
+            pass
         return item
 
     @staticmethod
@@ -230,6 +258,12 @@ class OrderService:
         db.add(order)
         db.commit()
         db.refresh(order)
+        # Notify KDS about hold
+        try:
+            payload = {"id": str(order.id), "order_number": order.order_number, "status": order.status}
+            asyncio.create_task(KDSService.broadcast_order_update(payload))
+        except Exception:
+            pass
         return order
 
     @staticmethod
@@ -244,6 +278,12 @@ class OrderService:
         db.add(order)
         db.commit()
         db.refresh(order)
+        # Notify KDS about resume
+        try:
+            payload = {"id": str(order.id), "order_number": order.order_number, "status": order.status}
+            asyncio.create_task(KDSService.broadcast_order_update(payload))
+        except Exception:
+            pass
         return order
 
     @staticmethod
@@ -273,6 +313,12 @@ class OrderService:
         db.add(order)
         db.commit()
         db.refresh(order)
+        # Notify KDS about completion
+        try:
+            payload = {"id": str(order.id), "order_number": order.order_number, "status": order.status}
+            asyncio.create_task(KDSService.broadcast_order_update(payload))
+        except Exception:
+            pass
         return order
 
     @staticmethod
@@ -299,6 +345,12 @@ class OrderService:
         db.add(order)
         db.commit()
         db.refresh(order)
+        # Notify KDS about cancellation
+        try:
+            payload = {"id": str(order.id), "order_number": order.order_number, "status": order.status}
+            asyncio.create_task(KDSService.broadcast_order_update(payload))
+        except Exception:
+            pass
         return order
 
     @staticmethod
@@ -317,6 +369,12 @@ class OrderService:
         db.add(order)
         db.commit()
         db.refresh(order)
+        # Notify KDS about status change
+        try:
+            payload = {"id": str(order.id), "order_number": order.order_number, "status": order.status}
+            asyncio.create_task(KDSService.broadcast_order_update(payload))
+        except Exception:
+            pass
         return order
 
     @staticmethod

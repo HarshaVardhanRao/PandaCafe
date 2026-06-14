@@ -373,12 +373,25 @@ class InventoryTransaction(Base):
     reference_type = Column(String(50))  # order_id, purchase_id, manual
     reference_id = Column(UUID(as_uuid=True))
     notes = Column(Text)
-    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    created_by_id = Column(
+    UUID(as_uuid=True),
+    ForeignKey("users.id"),
+    nullable=False
+)
+
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
 
     # Relationships
-    inventory_item = relationship("InventoryItem", back_populates="transactions")
-    created_by_user = relationship("User", back_populates="inventory_transactions", foreign_keys=[created_by])
+    inventory_item = relationship(
+        "InventoryItem",
+        back_populates="transactions"
+    )
+
+    created_by = relationship(
+        "User",
+        back_populates="inventory_transactions",
+        foreign_keys=[created_by_id]
+    )
 
     __table_args__ = (
         Index("idx_inventory_transactions_item_id", "inventory_item_id"),

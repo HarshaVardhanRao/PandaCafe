@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
 
     # Database
-    DATABASE_URL: str = "postgresql://user:password@localhost:5432/pandacafe"
+    DATABASE_URL: str = "postgresql://pandacafe:pandacafe_dev@localhost:5432/pandacafe"
     DATABASE_POOL_SIZE: int = 20
     DATABASE_MAX_OVERFLOW: int = 10
     DATABASE_POOL_TIMEOUT: int = 30
@@ -72,6 +72,6 @@ class Settings(BaseSettings):
         env_file = ".env"
         env_file_encoding = "utf-8"
         case_sensitive = True
-
+        extra = "ignore"
 
 settings = Settings()
