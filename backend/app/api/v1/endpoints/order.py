@@ -6,7 +6,7 @@ REST endpoints for order management, billing, and payments.
 from decimal import Decimal
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Header
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
@@ -34,18 +34,20 @@ from app.services.payment_service import PaymentService
 from app.services.table_service import TableService
 from app.core.security import verify_token
 
-router = APIRouter(prefix="/api/v1", tags=["orders"])
+router = APIRouter(prefix="", tags=["orders"])
 
 
-def get_current_user(db: Session = Depends(get_db), authorization: str = None) -> User:
+def get_current_user(db: Session = Depends(get_db), authorization: str = Header(None)) -> User:
     """Dependency to get current user from JWT token."""
     if not authorization:
         raise HTTPException(status_code=401, detail="Authorization header missing")
 
     try:
         token = authorization.replace("Bearer ", "")
-        user_id = verify_token(token)
-        user = db.query(User).filter(User.id == user_id).first()
+        token_data = verify_token(token)
+        if not token_data:
+            raise HTTPException(status_code=401, detail="Invalid token")
+        user = db.query(User).filter(User.id == token_data.user_id).first()
         if not user:
             raise HTTPException(status_code=401, detail="User not found")
         return user
@@ -397,6 +399,36 @@ def get_table(
         if not table:
             raise HTTPException(status_code=404, detail="Table not found")
         return table
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/tables/{table_id}/qr")
+def get_table_qr(table_id: str, db: Session = Depends(get_db)):
+    """Generate table self-ordering QR code image."""
+    import qrcode
+    import io
+    from fastapi.responses import Response
+    from app.models import Table
+
+    try:
+        table = db.query(Table).filter(Table.id == table_id).first()
+        if not table:
+            raise HTTPException(status_code=404, detail="Table not found")
+
+        menu_url = f"http://localhost:3000/menu?table_id={table_id}"
+        qr = qrcode.QRCode(version=1, box_size=10, border=5)
+        qr.add_data(menu_url)
+        qr.make(fit=True)
+        img = qr.make_image(fill_color="black", back_color="white")
+
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        qr_bytes = buf.getvalue()
+
+        return Response(content=qr_bytes, media_type="image/png")
     except HTTPException:
         raise
     except Exception as e:

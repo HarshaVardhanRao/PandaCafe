@@ -111,7 +111,7 @@ class TestPaymentProcessing:
 
     def test_invalid_payment_amount(self, db: Session, test_order_with_balance):
         """Test invalid payment amount."""
-        payment_request = PaymentRequest(
+        payment_request = PaymentRequest.model_construct(
             amount=Decimal("-10.00"),
             payment_method="cash",
         )

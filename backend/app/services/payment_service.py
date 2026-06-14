@@ -74,6 +74,8 @@ class PaymentService:
         if total_paid >= billing["total_amount"]:
             order.status = "served"
             db.add(order)
+            from app.services.inventory_service import InventoryService
+            InventoryService.deduct_stock_for_order(db, order)
 
         db.commit()
         db.refresh(payment)
@@ -130,6 +132,8 @@ class PaymentService:
         # Mark order as served (fully paid)
         order.status = "served"
         db.add(order)
+        from app.services.inventory_service import InventoryService
+        InventoryService.deduct_stock_for_order(db, order)
 
         db.commit()
 

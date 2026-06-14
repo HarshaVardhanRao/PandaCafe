@@ -83,13 +83,7 @@ class OrderService:
         db.refresh(order)
         # Notify KDS clients about new order
         try:
-            payload = {
-                "id": str(order.id),
-                "order_number": order.order_number,
-                "status": order.status,
-                "table_id": str(order.table_id) if order.table_id else None,
-                "total_amount": float(order.total_amount),
-            }
+            payload = KDSService.format_kds_order(db, order)
             asyncio.create_task(KDSService.broadcast_order_update(payload))
         except Exception:
             # best-effort notify; don't fail order creation on notify errors
@@ -188,13 +182,7 @@ class OrderService:
         # Notify KDS of item addition
         try:
             order = OrderService.get_order(db, order_id)
-            payload = {
-                "id": str(order.id),
-                "order_number": order.order_number,
-                "status": order.status,
-                "items_count": len(order.items),
-                "total_amount": float(order.total_amount),
-            }
+            payload = KDSService.format_kds_order(db, order)
             asyncio.create_task(KDSService.broadcast_order_update(payload))
         except Exception:
             pass
@@ -217,6 +205,14 @@ class OrderService:
         OrderService._update_order_totals(db, order_id)
 
         db.commit()
+
+        # Notify KDS of item removal
+        try:
+            order = OrderService.get_order(db, order_id)
+            payload = KDSService.format_kds_order(db, order)
+            asyncio.create_task(KDSService.broadcast_order_update(payload))
+        except Exception:
+            pass
 
     @staticmethod
     def update_order(db: Session, order_id: str, updates: dict) -> Order:
@@ -311,6 +307,10 @@ class OrderService:
                 db.add(table)
 
         db.add(order)
+        from app.services.inventory_service import InventoryService
+        InventoryService.deduct_stock_for_order(db, order)
+        from app.services.customer_service import CustomerService
+        CustomerService.credit_loyalty_points(db, order)
         db.commit()
         db.refresh(order)
         # Notify KDS about completion
@@ -343,11 +343,13 @@ class OrderService:
                 db.add(table)
 
         db.add(order)
+        from app.services.customer_service import CustomerService
+        CustomerService.refund_redeemed_points(db, order)
         db.commit()
         db.refresh(order)
         # Notify KDS about cancellation
         try:
-            payload = {"id": str(order.id), "order_number": order.order_number, "status": order.status}
+            payload = KDSService.format_kds_order(db, order)
             asyncio.create_task(KDSService.broadcast_order_update(payload))
         except Exception:
             pass
@@ -364,14 +366,34 @@ class OrderService:
         if not order:
             raise ValueError(f"Order {order_id} not found")
 
+        prev_status = order.status
         order.status = status
         order.updated_at = datetime.utcnow()
+
+        # Trigger simulated KOT printing if entering kitchen (accepted or preparing)
+        if status in ["accepted", "preparing"]:
+            from app.services.printer_service import PrinterService
+            PrinterService.print_kot(db, order)
+
         db.add(order)
+        if status in ["served", "completed"]:
+            from app.services.inventory_service import InventoryService
+            InventoryService.deduct_stock_for_order(db, order)
+
+        if status == "completed" and prev_status != "completed":
+            from app.services.customer_service import CustomerService
+            CustomerService.credit_loyalty_points(db, order)
+        elif status == "cancelled":
+            from app.services.customer_service import CustomerService
+            if prev_status == "completed":
+                CustomerService.revert_loyalty_points(db, order)
+            CustomerService.refund_redeemed_points(db, order)
+
         db.commit()
         db.refresh(order)
         # Notify KDS about status change
         try:
-            payload = {"id": str(order.id), "order_number": order.order_number, "status": order.status}
+            payload = KDSService.format_kds_order(db, order)
             asyncio.create_task(KDSService.broadcast_order_update(payload))
         except Exception:
             pass
@@ -383,6 +405,7 @@ class OrderService:
         Recalculate and update order totals based on items.
         Called after adding/removing items.
         """
+        db.flush()
         order = OrderService.get_order(db, order_id)
         if not order:
             return
