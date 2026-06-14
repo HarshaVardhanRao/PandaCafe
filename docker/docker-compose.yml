@@ -1,0 +1,121 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: pandacafe-postgres
+    environment:
+      POSTGRES_USER: ${DB_USER:-pandacafe}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-pandacafe_dev}
+      POSTGRES_DB: ${DB_NAME:-pandacafe}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-pandacafe}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - pandacafe-network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: pandacafe-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - pandacafe-network
+
+  # FastAPI Backend
+  backend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.backend
+    container_name: pandacafe-backend
+    environment:
+      DATABASE_URL: postgresql://${DB_USER:-pandacafe}:${DB_PASSWORD:-pandacafe_dev}@postgres:5432/${DB_NAME:-pandacafe}
+      REDIS_URL: redis://redis:6379/0
+      DEBUG: "False"
+      APP_ENV: production
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+    networks:
+      - pandacafe-network
+    command: >
+      sh -c "alembic upgrade head &&
+             python seed_db.py &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000"
+
+  # React POS Application
+  pos:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.pos
+    container_name: pandacafe-pos
+    ports:
+      - "3000:3000"
+    environment:
+      VITE_API_URL: http://localhost:8000/api/v1
+    depends_on:
+      - backend
+    networks:
+      - pandacafe-network
+
+  # React KDS Application
+  kds:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.kds
+    container_name: pandacafe-kds
+    ports:
+      - "3001:3001"
+    environment:
+      VITE_API_URL: http://localhost:8000/api/v1
+      VITE_WS_URL: ws://localhost:8000/api/v1
+    depends_on:
+      - backend
+    networks:
+      - pandacafe-network
+
+  # nginx Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    container_name: pandacafe-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./docker/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - backend
+      - pos
+      - kds
+    networks:
+      - pandacafe-network
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  pandacafe-network:
+    driver: bridge
