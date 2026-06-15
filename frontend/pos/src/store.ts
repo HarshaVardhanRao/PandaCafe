@@ -11,7 +11,7 @@ export interface Product {
   sku: string;
   name: string;
   price: string;
-  tax_percent: string;
+  tax_percent: any;
   category_id: string;
   is_available: boolean;
 }
@@ -19,6 +19,9 @@ export interface Product {
 export interface Category {
   id: string;
   name: string;
+  description?: string;
+  display_order?: number;
+  is_active?: boolean;
 }
 
 export interface Table {
@@ -181,7 +184,7 @@ export const usePOSStore = create<POSState>((set, get) => ({
             product_id: product.id,
             name: product.name,
             price: parseFloat(product.price),
-            tax_percent: parseFloat(product.tax_percent),
+            tax_percent: parseFloat(product.tax_percent) || 0,
             quantity,
             special_notes: specialNotes,
           },
@@ -212,7 +215,7 @@ export const usePOSStore = create<POSState>((set, get) => ({
       product_id: item.product_id,
       name: item.product ? item.product.name : "Item",
       price: parseFloat(item.unit_price),
-      tax_percent: parseFloat(item.tax_percent),
+      tax_percent: parseFloat(item.tax_percent) || 0,
       quantity: item.quantity,
       special_notes: item.special_notes || "",
     }));

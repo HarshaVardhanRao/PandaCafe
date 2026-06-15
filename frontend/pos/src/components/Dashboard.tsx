@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import api from "../api";
 import { usePOSStore, Product, Category, Table, CartItem } from "../store";
 import CheckoutDrawer from "./CheckoutDrawer";
@@ -6,6 +7,7 @@ import ReceiptModal from "./ReceiptModal";
 
 export default function Dashboard() {
   const store = usePOSStore();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
 
   // UI state
@@ -274,6 +276,14 @@ export default function Dashboard() {
           </div>
         </div>
         <div className="flex items-center gap-4">
+          {(store.user?.role === "owner" || store.user?.role === "manager") && (
+            <button
+              onClick={() => navigate("/admin")}
+              className="px-4 py-2 bg-emerald-600/20 hover:bg-emerald-600 border border-emerald-500/30 text-emerald-400 hover:text-white rounded-xl transition-all text-xs font-semibold"
+            >
+              ⚙️ Admin Panel
+            </button>
+          )}
           <div className="text-right">
             <span className="text-sm font-medium text-gray-300 block">{store.user?.username}</span>
             <span className="text-xs text-gray-500 capitalize">{store.user?.role}</span>

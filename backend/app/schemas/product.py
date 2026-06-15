@@ -141,6 +141,7 @@ class ProductListResponse(BaseModel):
     name: str
     category_id: UUID
     price: float
+    tax_percent: float = 0.0
     image_url: Optional[str] = None
     is_available: bool
 
