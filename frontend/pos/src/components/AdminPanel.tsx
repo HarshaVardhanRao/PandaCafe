@@ -7,10 +7,15 @@ export default function AdminPanel() {
   const navigate = useNavigate();
   const store = usePOSStore();
 
-  const [activeTab, setActiveTab] = useState<"products" | "categories">("products");
+  const [activeTab, setActiveTab] = useState<"products" | "categories" | "settings">("products");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
+  // Settings States
+  const [upiId, setUpiId] = useState("");
+  const [editingUpiId, setEditingUpiId] = useState("");
+  const [savingSettings, setSavingSettings] = useState(false);
 
   // Data states
   const [products, setProducts] = useState<any[]>([]);
@@ -50,12 +55,17 @@ export default function AdminPanel() {
     setLoading(true);
     setError(null);
     try {
-      const [catsRes, prodsRes] = await Promise.all([
+      const [catsRes, prodsRes, upiRes] = await Promise.all([
         api.get("/products/categories?active_only=false"),
         api.get("/products?active_only=false"),
+        api.get("/settings/upi_id").catch(() => ({ data: { upi_id: "pandacafe@upi" } })),
       ]);
       setCategories(catsRes.data);
       setProducts(prodsRes.data);
+      if (upiRes && upiRes.data) {
+        setUpiId(upiRes.data.upi_id);
+        setEditingUpiId(upiRes.data.upi_id);
+      }
 
       // Sync categories to global store in case they've changed
       // (only active ones for Cashier catalog)
@@ -253,6 +263,24 @@ export default function AdminPanel() {
     }
   };
 
+  const handleSaveUpiId = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingUpiId.trim()) {
+      triggerToast("UPI ID cannot be empty.", "error");
+      return;
+    }
+    setSavingSettings(true);
+    try {
+      await api.put("/settings/upi_id", { upi_id: editingUpiId.trim() });
+      setUpiId(editingUpiId.trim());
+      triggerToast("UPI ID updated successfully!", "success");
+    } catch (err: any) {
+      triggerToast(err.response?.data?.detail || "Failed to update UPI ID.", "error");
+    } finally {
+      setSavingSettings(false);
+    }
+  };
+
   // Filter Products
   const filteredProducts = products.filter((p) => {
     const matchSearch =
@@ -329,10 +357,20 @@ export default function AdminPanel() {
             >
               📁 Manage Categories
             </button>
+            <button
+              onClick={() => setActiveTab("settings")}
+              className={`px-5 py-2.5 rounded-lg text-sm font-semibold transition-all ${
+                activeTab === "settings"
+                  ? "bg-emerald-600 text-white shadow-lg shadow-emerald-950/20"
+                  : "text-gray-400 hover:text-white"
+              }`}
+            >
+              ⚙️ Payment Settings
+            </button>
           </div>
 
           <div className="flex gap-2 w-full md:w-auto">
-            {activeTab === "products" ? (
+            {activeTab === "products" && (
               <button
                 onClick={handleOpenAddProduct}
                 disabled={categories.length === 0}
@@ -340,7 +378,8 @@ export default function AdminPanel() {
               >
                 <span>➕</span> Add Product
               </button>
-            ) : (
+            )}
+            {activeTab === "categories" && (
               <button
                 onClick={handleOpenAddCategory}
                 className="w-full md:w-auto px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold rounded-xl transition-all flex items-center justify-center gap-1.5 shadow-md shadow-emerald-950/25"
@@ -527,6 +566,41 @@ export default function AdminPanel() {
                 </table>
               )}
             </div>
+          </div>
+        )}
+
+        {activeTab === "settings" && (
+          <div className="glass-panel p-6 rounded-2xl border border-gray-800 space-y-6 animate-fadeIn">
+            <div>
+              <h3 className="text-lg font-bold text-white mb-2">Payment Settings</h3>
+              <p className="text-xs text-gray-400 font-medium">Configure store payment options and configurations.</p>
+            </div>
+
+            <form onSubmit={handleSaveUpiId} className="space-y-4 max-w-md">
+              <div>
+                <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                  Store UPI ID (Virtual Payment Address)
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. pandacafe@upi or 9999999999@paytm"
+                  value={editingUpiId}
+                  onChange={(e) => setEditingUpiId(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-[#111827]/80 border border-gray-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 text-white text-sm transition-all"
+                />
+                <p className="text-[10px] text-gray-500 mt-1.5 font-medium">
+                  This UPI ID is used to dynamically generate QR codes for customers paying via UPI at checkout.
+                </p>
+              </div>
+
+              <button
+                type="submit"
+                disabled={savingSettings || loading}
+                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:bg-emerald-800 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-xl transition-all shadow-md shadow-emerald-950/25 flex items-center justify-center gap-2"
+              >
+                {savingSettings ? "Saving Settings..." : "Save Payment Settings"}
+              </button>
+            </form>
           </div>
         )}
       </main>

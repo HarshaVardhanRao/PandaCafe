@@ -4,7 +4,7 @@ Seed script to create initial roles and test data.
 
 from sqlalchemy.orm import Session
 from app.db.database import SessionLocal, Base, engine
-from app.models import Role, User, Category, Product
+from app.models import Role, User, Category, Product, Table, Setting
 from app.core.security import get_password_hash
 
 
@@ -140,6 +140,42 @@ def seed_products(db: Session):
         db.commit()
 
 
+def seed_tables(db: Session):
+    """Create default tables."""
+    tables_data = [
+        {"table_number": 1, "capacity": 2, "location": "Main Hall"},
+        {"table_number": 2, "capacity": 4, "location": "Main Hall"},
+        {"table_number": 3, "capacity": 4, "location": "Main Hall"},
+        {"table_number": 4, "capacity": 6, "location": "Window"},
+        {"table_number": 5, "capacity": 2, "location": "Terrace"},
+    ]
+
+    for table_data in tables_data:
+        existing = db.query(Table).filter(Table.table_number == table_data["table_number"], Table.deleted_at.is_(None)).first()
+        if not existing:
+            table = Table(**table_data, status="available")
+            db.add(table)
+            print(f"Created table: T-{table_data['table_number']}")
+
+    db.commit()
+
+
+def seed_settings(db: Session):
+    """Create default settings."""
+    existing = db.query(Setting).filter(Setting.setting_key == "upi_id").first()
+    if not existing:
+        setting = Setting(
+            setting_key="upi_id",
+            setting_value="pandacafe@upi",
+            setting_type="string",
+            description="UPI ID for payment QR code generation",
+            is_system=True
+        )
+        db.add(setting)
+        print("Created default UPI ID setting: pandacafe@upi")
+        db.commit()
+
+
 def main():
     """Run all seed functions."""
     print("Creating database tables...")
@@ -159,6 +195,12 @@ def main():
 
         print("\nSeeding products...")
         seed_products(db)
+
+        print("\nSeeding tables...")
+        seed_tables(db)
+
+        print("\nSeeding settings...")
+        seed_settings(db)
 
         print("\n✅ Database seeding completed successfully!")
     except Exception as e:

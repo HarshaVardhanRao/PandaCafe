@@ -6,6 +6,7 @@ Request/response models for Phase 2 endpoints.
 from datetime import datetime
 from decimal import Decimal
 from typing import List, Optional
+from uuid import UUID
 
 from pydantic import BaseModel, Field, validator
 
@@ -35,9 +36,9 @@ class OrderItemAddRequest(BaseModel):
 class OrderItemResponse(BaseModel):
     """Response model for order item."""
 
-    id: str
-    order_id: str
-    product_id: str
+    id: UUID
+    order_id: UUID
+    product_id: UUID
     product_name: Optional[str] = None
     quantity: int
     unit_price: Decimal
@@ -145,7 +146,7 @@ class BillingCalculation(BaseModel):
 class BillingResponse(BaseModel):
     """Complete billing summary for order."""
 
-    order_id: str
+    order_id: UUID
     order_number: str
     items_count: int
     item_details: List[OrderItemResponse]
@@ -219,8 +220,8 @@ class SplitPaymentRequest(BaseModel):
 class PaymentResponse(BaseModel):
     """Response for payment transaction."""
 
-    id: str
-    order_id: str
+    id: UUID
+    order_id: UUID
     amount: Decimal
     payment_method: str
     transaction_id: Optional[str]
@@ -235,7 +236,7 @@ class PaymentResponse(BaseModel):
 class PaymentListResponse(BaseModel):
     """Response for payment list."""
 
-    order_id: str
+    order_id: UUID
     total_paid: Decimal
     remaining_amount: Decimal
     payments: List[PaymentResponse]
@@ -252,13 +253,13 @@ class PaymentListResponse(BaseModel):
 class OrderResponse(BaseModel):
     """Basic order response."""
 
-    id: str
+    id: UUID
     order_number: str
     order_type: str
     status: str
-    table_id: Optional[str]
-    customer_id: Optional[str]
-    cashier_id: str
+    table_id: Optional[UUID]
+    customer_id: Optional[UUID]
+    cashier_id: UUID
     subtotal: Decimal
     tax_amount: Decimal
     discount_amount: Decimal
@@ -328,12 +329,12 @@ class TableStatusUpdateRequest(BaseModel):
 class TableResponse(BaseModel):
     """Response model for table."""
 
-    id: str
+    id: UUID
     table_number: int
     capacity: int
     location: Optional[str]
     status: str
-    current_order_id: Optional[str]
+    current_order_id: Optional[UUID]
     created_at: datetime
     updated_at: datetime
 
@@ -344,7 +345,7 @@ class TableResponse(BaseModel):
 class TableMergeRequest(BaseModel):
     """Request to merge tables."""
 
-    table_ids: List[str] = Field(..., min_items=2, description="List of table IDs to merge")
+    table_ids: List[UUID] = Field(..., min_items=2, description="List of table IDs to merge")
 
     class Config:
         json_schema_extra = {

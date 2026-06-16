@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import api from "../api";
 
 interface CheckoutDrawerProps {
@@ -25,6 +25,22 @@ export default function CheckoutDrawer({
   const [reference, setReference] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // UPI Setting State
+  const [upiId, setUpiId] = useState<string>("");
+
+  useEffect(() => {
+    const fetchUpiId = async () => {
+      try {
+        const res = await api.get("/settings/upi_id");
+        setUpiId(res.data.upi_id);
+      } catch (err) {
+        console.error("Failed to fetch UPI ID", err);
+        setUpiId("pandacafe@upi");
+      }
+    };
+    fetchUpiId();
+  }, []);
 
   // Split states
   const [splits, setSplits] = useState<SplitItem[]>([]);
@@ -198,6 +214,26 @@ export default function CheckoutDrawer({
               </div>
             </div>
 
+            {paymentMethod === "upi" && upiId && (
+              <div className="flex flex-col items-center justify-center p-4 bg-[#111827] border border-gray-805 rounded-xl space-y-3 mt-2 animate-fadeIn">
+                <p className="text-gray-300 text-xs font-semibold">Scan QR to Pay with UPI</p>
+                <div className="bg-white p-2 rounded-lg">
+                  <img
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(
+                      `upi://pay?pa=${upiId}&pn=PandaCafe&am=${totalAmount.toFixed(2)}&cu=INR`
+                    )}`}
+                    alt="UPI QR Code"
+                    className="w-[180px] h-[180px]"
+                  />
+                </div>
+                <div className="text-center">
+                  <p className="text-[10px] text-gray-500 uppercase font-semibold">Store UPI ID</p>
+                  <p className="text-xs text-emerald-400 font-mono select-all mt-0.5">{upiId}</p>
+                  <p className="text-[10px] text-gray-400 mt-1">Amount: ${(totalAmount).toFixed(2)}</p>
+                </div>
+              </div>
+            )}
+
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">Reference / Tx ID (Optional)</label>
               <input
@@ -290,6 +326,25 @@ export default function CheckoutDrawer({
                   placeholder="Reference Code (Optional)"
                   className="w-full px-3 py-2 bg-[#111827] border border-gray-800 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500/50 focus:border-emerald-500 text-white placeholder-gray-600 text-xs"
                 />
+
+                {splitMethod === "upi" && splitAmount > 0 && upiId && (
+                  <div className="flex flex-col items-center justify-center p-3 bg-[#111827] border border-gray-800 rounded-lg space-y-2 animate-fadeIn">
+                    <p className="text-gray-300 text-[11px] font-semibold">Scan QR for Split Amount</p>
+                    <div className="bg-white p-1.5 rounded-md">
+                      <img
+                        src={`https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(
+                          `upi://pay?pa=${upiId}&pn=PandaCafe&am=${splitAmount.toFixed(2)}&cu=INR`
+                        )}`}
+                        alt="UPI QR Code"
+                        className="w-[140px] h-[140px]"
+                      />
+                    </div>
+                    <div className="text-center">
+                      <p className="text-[9px] text-emerald-400 font-mono select-all">{upiId}</p>
+                      <p className="text-[9px] text-gray-400 mt-0.5">Amount: ${(splitAmount).toFixed(2)}</p>
+                    </div>
+                  </div>
+                )}
 
                 <button
                   onClick={handleAddSplit}

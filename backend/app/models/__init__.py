@@ -374,10 +374,11 @@ class InventoryTransaction(Base):
     reference_id = Column(UUID(as_uuid=True))
     notes = Column(Text)
     created_by_id = Column(
-    UUID(as_uuid=True),
-    ForeignKey("users.id"),
-    nullable=False
-)
+        "created_by",
+        UUID(as_uuid=True),
+        ForeignKey("users.id"),
+        nullable=False
+    )
 
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
 

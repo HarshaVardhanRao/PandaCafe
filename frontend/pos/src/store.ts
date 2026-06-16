@@ -163,8 +163,11 @@ export const usePOSStore = create<POSState>((set, get) => ({
   setCustomer: (customer) => set({ customer }),
   setDiscount: (discount) => set({ discount }),
   setActiveOrder: (order) => set({ activeOrder: order }),
-  setCatalog: (categories, products) => set({ categories, products }),
-  setTables: (tables) => set({ tables }),
+  setCatalog: (categories, products) => set({ 
+    categories: Array.isArray(categories) ? categories : [], 
+    products: Array.isArray(products) ? products : [] 
+  }),
+  setTables: (tables) => set({ tables: Array.isArray(tables) ? tables : [] }),
 
   addToCart: (product, quantity, specialNotes) => {
     const cart = get().cart;

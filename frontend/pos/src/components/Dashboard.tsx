@@ -243,12 +243,14 @@ export default function Dashboard() {
   };
 
   // Filter products
-  const filteredProducts = store.products.filter((p) => {
-    const matchCat = activeCategory === "all" || p.category_id === activeCategory;
-    const matchSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                        p.sku.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchCat && matchSearch && p.is_available;
-  });
+  const filteredProducts = Array.isArray(store.products)
+    ? store.products.filter((p) => {
+        const matchCat = activeCategory === "all" || p.category_id === activeCategory;
+        const matchSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                            p.sku.toLowerCase().includes(searchQuery.toLowerCase());
+        return matchCat && matchSearch && p.is_available;
+      })
+    : [];
 
   if (loading) {
     return (
